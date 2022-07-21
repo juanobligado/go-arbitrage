@@ -1,4 +1,4 @@
-package token_metadata
+package tokenmetadata
 
 import (
 	"testing"

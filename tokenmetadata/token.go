@@ -1,5 +1,5 @@
 // This script transforms token.json file which
-package token_metadata
+package tokenmetadata
 
 import (
 	"encoding/json"

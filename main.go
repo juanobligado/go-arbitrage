@@ -6,9 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	Token "github.com/juanobligado/go-arbitrage/token_metadata"
+	"github.com/joho/godotenv"
+	Token "github.com/juanobligado/go-arbitrage/tokenmetadata"
 	Pair "github.com/juanobligado/go-arbitrage/uniswap_pair"
 )
+
+func init(){
+	godotenv.Load()
+}
 
 func main(){
 	  
@@ -16,7 +21,7 @@ func main(){
 	dict.Save("./data/tokenAddressMap.json")
 
 	address := common.HexToAddress("0xcc3d1ecef1f9fd25599dbea2755019dc09db3c54")
-	client, err := ethclient.Dial("https://mainnet.infura.io/v3/ce50544cce4f4619b8a32afe1a8b06e4")
+	client, err := ethclient.Dial("https://mainnet.infura.io/v3/")
     if err != nil {
         log.Fatal(err)
     }

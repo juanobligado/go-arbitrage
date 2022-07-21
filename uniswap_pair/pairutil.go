@@ -1,29 +1,32 @@
 package uniswap_pair
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"math/big"
 	"strings"
 
-	"encoding/json"
-	"io/ioutil"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/juanobligado/go-arbitrage/token_metadata"
+	"github.com/juanobligado/go-arbitrage/config"
+	T "github.com/juanobligado/go-arbitrage/tokenmetadata"
 )
 
 type PairMetadata struct {
 	Address string `json:"address"`
-	T0 token_metadata.Token `json:"t0"`
-	T1 token_metadata.Token `json:"t1"`
+	T0 T.Token `json:"t0"`
+	T1 T.Token `json:"t1"`
 }
 
 type PairBalance struct{
+	Info PairMetadata 
 	T0Balance big.Int
 	T1Balance big.Int
 }
 
-func ReadPairMetadata(address string,  dictionary token_metadata.TokenByAddress, client  *ethclient.Client ) PairMetadata {
+type PairBalances map[string]PairBalance
+
+func ReadPairMetadata(address string,  dictionary T.TokenByAddress, client  *ethclient.Client ) PairMetadata {
 
 
 	metadata :=  PairMetadata{ Address: address }
@@ -52,7 +55,7 @@ func ReadPairMetadata(address string,  dictionary token_metadata.TokenByAddress,
 }
 
 // Creates a File with Extended Metadata for Token Pairs
-func  GeneratePairMetadataFile(filename string,addresses []string,dictionary token_metadata.TokenByAddress, client  *ethclient.Client) error {
+func  GeneratePairMetadataFile(filename string,addresses []string,dictionary T.TokenByAddress, client  *ethclient.Client) error {
 
 	pairMetadataMap := make(map[string]PairMetadata)
 
@@ -69,15 +72,34 @@ func  GeneratePairMetadataFile(filename string,addresses []string,dictionary tok
 	return ioutil.WriteFile(filename, addressToMetadataFile, 0644)
 }
 
+func  RestorePairMetadata(filename string) map[string]PairMetadata {
 
-func ReadPairPrices(strAddresses []string,  dictionary token_metadata.TokenByAddress, client  *ethclient.Client ) (map[string]PairBalance ,error) {
+	instance := make(map[string]PairMetadata)
+
+	filedata,_ := ioutil.ReadFile(filename)
+	err := json.Unmarshal(filedata, &instance) 
+	if(err!= nil){
+		return nil
+	}
+	return instance
+}
+
+type emtpyArgError struct{error }
+func ReadPairPrices(pairs map[string]PairMetadata , client  *ethclient.Client ) (PairBalances ,error) {
 
 
-	uniswapViewContractAddress :=  "0x416355755f32b2710ce38725ed0fa102ce7d07e6"
-	balances := make(map[string]PairBalance)
-	addresses := make([]common.Address,len(strAddresses))
-	for i:=0;i<len(strAddresses);i++{
-		addresses[i] = common.HexToAddress(strAddresses[i])
+
+	uniswapViewContractAddress := config.New().GoArbitrageConfig.PriceProxyContractAddress 
+	balances := make(PairBalances)
+	if(len(pairs) == 0){
+		return balances , emtpyArgError{} 
+	}
+	addresses := make([]common.Address,len(pairs))
+
+	i:=0
+	for  k,_ := range  pairs{
+		addresses[i] = common.HexToAddress(k)
+		i++
 	}
 	// Read Pair Metadata From Blockchain
 	priceProxyInstance,err := NewUniswapViewCaller(common.HexToAddress(uniswapViewContractAddress),client)
@@ -85,11 +107,24 @@ func ReadPairPrices(strAddresses []string,  dictionary token_metadata.TokenByAdd
 		return balances,err
 	}
 	result,err := priceProxyInstance.ViewPair(nil,addresses)
-	for i:=0;i<len(strAddresses);i++{
+	if(err!=nil){
+		return balances,err
+	}
+	for i:=0;i<len(addresses);i++{
+		pairAddress :=  strings.ToLower(addresses[i].String()) 
 		item := PairBalance{}
+		item.Info = pairs[pairAddress]
 		item.T0Balance = *result[i*2]
 		item.T1Balance = *result[i*2+1]
-		balances[strAddresses[i]] = item
+		balances[pairAddress] = item
 	}
 	return balances,nil
+}
+
+func (b *PairBalances) Save(filename string ) error{
+	marshalledData, err := json.MarshalIndent( (*b), "", " ") 
+	if(err!= nil){
+		return err
+	}
+	return ioutil.WriteFile(filename, marshalledData, 0644)
 }
