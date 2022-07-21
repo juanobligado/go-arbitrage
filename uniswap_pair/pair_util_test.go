@@ -36,3 +36,17 @@ func TestGenerateMetadataPairFile(m *testing.T){
 func getInfuraKey() string {
 	return "https://mainnet.infura.io/v3/ce50544cce4f4619b8a32afe1a8b06e4"
 }
+
+
+
+func TestReadPairPrice(m *testing.T){
+	client, err := ethclient.Dial(getInfuraKey())
+    if err != nil {
+        log.Fatal(err)
+    }
+	
+	dict := token_metadata.CreateFromList("../data/tokens.json")
+	addresses := []string{"0x05f04f112a286c4c551897fb19ed2300272656c8"} 
+	balances,_ := ReadPairPrices(addresses,dict.Dictionary,client)
+	fmt.Println(balances)
+}

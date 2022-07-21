@@ -1,6 +1,7 @@
 package uniswap_pair
 
 import (
+	"math/big"
 	"strings"
 
 	"encoding/json"
@@ -15,6 +16,11 @@ type PairMetadata struct {
 	Address string `json:"address"`
 	T0 token_metadata.Token `json:"t0"`
 	T1 token_metadata.Token `json:"t1"`
+}
+
+type PairBalance struct{
+	T0Balance big.Int
+	T1Balance big.Int
 }
 
 func ReadPairMetadata(address string,  dictionary token_metadata.TokenByAddress, client  *ethclient.Client ) PairMetadata {
@@ -61,4 +67,29 @@ func  GeneratePairMetadataFile(filename string,addresses []string,dictionary tok
 		return err
 	}
 	return ioutil.WriteFile(filename, addressToMetadataFile, 0644)
+}
+
+
+func ReadPairPrices(strAddresses []string,  dictionary token_metadata.TokenByAddress, client  *ethclient.Client ) (map[string]PairBalance ,error) {
+
+
+	uniswapViewContractAddress :=  "0x416355755f32b2710ce38725ed0fa102ce7d07e6"
+	balances := make(map[string]PairBalance)
+	addresses := make([]common.Address,len(strAddresses))
+	for i:=0;i<len(strAddresses);i++{
+		addresses[i] = common.HexToAddress(strAddresses[i])
+	}
+	// Read Pair Metadata From Blockchain
+	priceProxyInstance,err := NewUniswapViewCaller(common.HexToAddress(uniswapViewContractAddress),client)
+	if(err!= nil){
+		return balances,err
+	}
+	result,err := priceProxyInstance.ViewPair(nil,addresses)
+	for i:=0;i<len(strAddresses);i++{
+		item := PairBalance{}
+		item.T0Balance = *result[i*2]
+		item.T1Balance = *result[i*2+1]
+		balances[strAddresses[i]] = item
+	}
+	return balances,nil
 }
