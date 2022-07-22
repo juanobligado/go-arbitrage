@@ -66,9 +66,7 @@ func (t *TokenDictionary) Save(filename string) error {
 	return ioutil.WriteFile(filename, addressToMetadataFile, 0644)
 }
 
-type RawMetadata interface {
-
-}
+type RawMetadata interface {}
 
 
 // restores token metadata from original .json file 
@@ -101,3 +99,5 @@ func  ReadDistinctPairs(filename string) []string {
 	// fills metadata dictionary by token address 
 	return  distinctPairs
 }
+
+

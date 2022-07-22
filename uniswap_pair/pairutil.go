@@ -3,13 +3,13 @@ package uniswap_pair
 import (
 	"encoding/json"
 	"io/ioutil"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/juanobligado/go-arbitrage/config"
 	T "github.com/juanobligado/go-arbitrage/tokenmetadata"
+	"github.com/juanobligado/go-arbitrage/utils"
 )
 
 type PairMetadata struct {
@@ -18,10 +18,13 @@ type PairMetadata struct {
 	T1 T.Token `json:"t1"`
 }
 
+
+
 type PairBalance struct{
 	Info PairMetadata 
-	T0Balance big.Int
-	T1Balance big.Int
+	T0Balance  utils.BigInt
+	T1Balance  utils.BigInt
+	Broken bool
 }
 
 type PairBalances map[string]PairBalance
@@ -97,6 +100,7 @@ func ReadPairPrices(pairs map[string]PairMetadata , client  *ethclient.Client ) 
 	addresses := make([]common.Address,len(pairs))
 
 	i:=0
+	minLiquidity := int64(100)
 	for  k,_ := range  pairs{
 		addresses[i] = common.HexToAddress(k)
 		i++
@@ -114,9 +118,17 @@ func ReadPairPrices(pairs map[string]PairMetadata , client  *ethclient.Client ) 
 		pairAddress :=  strings.ToLower(addresses[i].String()) 
 		item := PairBalance{}
 		item.Info = pairs[pairAddress]
-		item.T0Balance = *result[i*2]
-		item.T1Balance = *result[i*2+1]
+		item.T0Balance.Set(result[i*2])
+		item.T1Balance.Set(result[i*2 + 1]) 
+
 		balances[pairAddress] = item
+
+		// Set As Broken if Liquidity is not enough
+		if  ( item.T0Balance.IsInt64()  && item.T0Balance.Int64() < minLiquidity) || 
+			( item.T1Balance.IsInt64()  && item.T1Balance.Int64() < minLiquidity) {
+			item.Broken = true;
+		}		
+			
 	}
 	return balances,nil
 }
@@ -127,4 +139,16 @@ func (b *PairBalances) Save(filename string ) error{
 		return err
 	}
 	return ioutil.WriteFile(filename, marshalledData, 0644)
+}
+
+func  RestorePrices(filename string) PairBalances {
+
+	instance := make(PairBalances)
+
+	filedata,_ := ioutil.ReadFile(filename)
+	err := json.Unmarshal(filedata, &instance) 
+	if(err!= nil){
+		return nil
+	}
+	return instance
 }

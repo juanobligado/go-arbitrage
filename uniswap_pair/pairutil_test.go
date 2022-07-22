@@ -38,21 +38,7 @@ func TestGenerateMetadataPairFile(m *testing.T){
 }
 
 
-
-
-
-// func TestReadPairPrice(m *testing.T){
-// 	client, err := CreateInfuraConnection()
-//     if err != nil {
-//         log.Fatal(err)
-//     }
-	
-// 	dict := token_metadata.CreateFromList("../data/tokens.json")
-// 	addresses := []string{"0x05f04f112a286c4c551897fb19ed2300272656c8"} 
-// 	balances,_ := ReadPairPrices(addresses,dict.Dictionary,client)
-// 	fmt.Println(balances)
-// }
-
+// Test to generate Price File for all balances
 func TestReadAllPrices(m *testing.T){
 	pairMetadata := RestorePairMetadata("../data/pair_metadata.json")
 
@@ -62,5 +48,8 @@ func TestReadAllPrices(m *testing.T){
     }
 	balances,_ := ReadPairPrices(pairMetadata,client)
 
-	balances.Save("../data/pair_balances.json")
+	err = balances.Save("../data/pair_balances.json")
+	if err != nil {
+        log.Fatal(err)
+    }
 }
