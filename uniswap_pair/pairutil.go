@@ -24,7 +24,7 @@ type PairBalance struct{
 	Info PairMetadata 
 	T0Balance  utils.BigInt
 	T1Balance  utils.BigInt
-	Broken bool
+	LiquidityWarning bool
 }
 
 type PairBalances map[string]PairBalance
@@ -121,14 +121,14 @@ func ReadPairPrices(pairs map[string]PairMetadata , client  *ethclient.Client ) 
 		item.T0Balance.Set(result[i*2])
 		item.T1Balance.Set(result[i*2 + 1]) 
 
-		balances[pairAddress] = item
+		
 
 		// Set As Broken if Liquidity is not enough
 		if  ( item.T0Balance.IsInt64()  && item.T0Balance.Int64() < minLiquidity) || 
 			( item.T1Balance.IsInt64()  && item.T1Balance.Int64() < minLiquidity) {
-			item.Broken = true;
+			item.LiquidityWarning = true;
 		}		
-			
+		balances[pairAddress] = item	
 	}
 	return balances,nil
 }

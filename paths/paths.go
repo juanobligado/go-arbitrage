@@ -15,7 +15,8 @@ import (
 type PathItem struct{
 	PairAddress string
 	DstToken string
-	
+	PairAddressIndex int 
+	PairAddressCount int 
 }
 type Path struct{
 	Index int
@@ -57,7 +58,6 @@ func ReadPathItems(rawPath []interface{}, iPath int, dictionary *tokenmetadata.T
 	pathCacheItem := Path{Index: iPath}
 	pathCacheItem.Tokens = append(pathCacheItem.Tokens,"WETH")
 	
-
 	for iPathItem := 0; iPathItem < pathItemCount ; iPathItem++{
 		// Reading path item 
 		
@@ -66,33 +66,45 @@ func ReadPathItems(rawPath []interface{}, iPath int, dictionary *tokenmetadata.T
 		dstTokenMeta := dictionary.Dictionary[dstToken]
 		pathCacheItem.Tokens = append(pathCacheItem.Tokens, dstTokenMeta.Symbol)
 		// TODO: Handle multiple Internal Paths
-		for _,rawPathPair := range rawPathPairs{
 
-			strPair :=fmt.Sprint(rawPathPair)
-			pathPairs[strPair] = true;	
+		pairAddressIndex := 0
+		strPair := fmt.Sprint(rawPathPairs[pairAddressIndex])
+		pathItemPairs := len(rawPathPairs) 
+		if 	pathItemPairs > 1 && iPathItem > 0 {
+			prevItem := pathCacheItem.PathItems[iPathItem - 1]
+			if prevItem.PairAddress == strPair{
+				pairAddressIndex++
+				strPair = fmt.Sprint(rawPathPairs[pairAddressIndex])
+			}  
 		}
+		
 		newPathItem := PathItem {
-			PairAddress: fmt.Sprint(rawPathPairs[0]),
 			DstToken: dstToken,
+			PairAddress: strPair,
+			PairAddressIndex : pairAddressIndex,
+			PairAddressCount : pathItemPairs,
 		}
-
+		pathPairs[strPair] = true
 		pathCacheItem.PathItems = append(pathCacheItem.PathItems,newPathItem)
 		
 	}
 	// Just skip Trivial Paths since they dont provide arb opportunities i.e A -> B , B -> A is always 1
-	if(len(pathPairs) > 1){
-		pathCache = append(pathCache, pathCacheItem)
+	if len(pathPairs) == 1 {
+		pathCacheItem.Trivial = true
 	}
+	pathCache = append(pathCache, pathCacheItem)
 	
 	return pathCache
 }
 
 type PathCalcResult struct{
+	Path Path 
 	Nums  []utils.BigInt
 	Den   []utils.BigInt
 	NTotal utils.BigInt
 	DTotal utils.BigInt
 	Ratio float64
+	Err string
 }
 
 
@@ -101,13 +113,19 @@ func (p *Path) Calculate( balances uniswap_pair.PairBalances) PathCalcResult {
 	result := PathCalcResult{}
 	result.DTotal.SetInt64(1)
 	result.NTotal.SetInt64(1)
-
+	result.Path = *p
+	if(p.Trivial){
+		result.Err = "Trivial Item Will Never Return Arbitrage"
+		return result
+	}
 	for _,item := range p.PathItems{
 		qNum := utils.BigInt{}
 		qDen := utils.BigInt{}
 		//todo :calculate multiple paths or check the one with Biggest volatility		
 		pairBalance := balances[item.PairAddress]
-
+		if pairBalance.LiquidityWarning{
+			result.Err = "Low Liquidity Detected"
+		}
 
 		if item.DstToken == pairBalance.Info.T0.Address {
 			qNum = pairBalance.T0Balance
@@ -116,6 +134,7 @@ func (p *Path) Calculate( balances uniswap_pair.PairBalances) PathCalcResult {
 			qNum = pairBalance.T1Balance
 			qDen = pairBalance.T0Balance
 		}
+		
 		result.Nums = append(result.Nums,qNum)
 		result.Den  = append(result.Den,qDen)
 		result.NTotal.Mul( &result.NTotal.Int, &qNum.Int )
