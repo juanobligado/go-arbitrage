@@ -25,7 +25,7 @@ func TestGenerateMetadataPairFile(m *testing.T){
 
 # 2 Get Balances for each pair
 
-To get balances to all pairs we take metadata file Generated on step 1 and call *ReadPairPrices* contract to get balances
+To get balances to all pairs we take metadata file Generated on step 1 and call *ReadPairPrices* contract to get balances and call Proxy contract
 
 ```
 func TestReadAllPrices(m *testing.T){
@@ -44,7 +44,10 @@ func TestReadAllPrices(m *testing.T){
 }
 ```
 1. We load extended pair metadata from #1
-2. Create a pair 
+2. Call UniswapView proxy contract to fetch all Balances
+3. Post Process output and generate data to feed the next step
+3. If finding that a pair has some liquidity issues we flag result with liquidity warning  
+4. Save Result in File
 
 [pair_balances.json](./data/pair_balances.json)
 
@@ -53,7 +56,7 @@ func TestReadAllPrices(m *testing.T){
 Here we are going to only detect imbalances, will be skipping tx cost estimation which would be needed to further decide if the arb is economically viable
 
 1. Read All Pair Balances genereted in #2
-2. Read Paths
+2. Read Paths 
 3. For Each path we do calculate propagated WETH price (should be 1 if no abitrage) 
 4. Write down result list as Json for post processing
 
